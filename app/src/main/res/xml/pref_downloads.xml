@@ -60,3 +60,5 @@
             android:summary="%s"
             android:defaultValue="realesr-animevideov3-x2" />
     </PreferenceCategory>
+
+</PreferenceScreen>
