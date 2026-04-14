@@ -24,7 +24,7 @@ jobs:
           unzip -q android_assets.zip -d android_temp
           
           # Use 'find' to locate the files, no matter what folder they extracted into
-          find android_temp -name "realsr-ncnn" -exec cp {} app/src/main/assets/ai_engine/ \;
+          find android_temp -name "realsr-ncnn" -exec cp {} app/src/main/jniLibs/arm64-v8a/lib_ai_engine.so \;
           find android_temp -name "libomp.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \;
           find android_temp -name "libc++_shared.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \;
           
