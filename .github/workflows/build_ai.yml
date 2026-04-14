@@ -18,30 +18,32 @@ jobs:
           mkdir -p app/src/main/assets/ai_engine/models
           mkdir -p app/src/main/jniLibs/arm64-v8a
           
-          # 1. Real-ESRGAN Engine & Models
-          echo "Fetching Real-ESRGAN..."
-          curl -L "https://github.com/tumuyan/RealSR-NCNN-Android/releases/download/1.11.1/assets.zip" -o esrgan_android.zip
-          unzip -q esrgan_android.zip -d esrgan_temp
-          find esrgan_temp -name "realsr-ncnn" -exec cp {} app/src/main/jniLibs/arm64-v8a/lib_realesrgan.so \;
+          # 1. Fetch Master Android Assets (Contains BOTH ESRGAN and Waifu2x)
+          echo "Fetching Android Engines..."
+          curl -L "https://github.com/tumuyan/RealSR-NCNN-Android/releases/download/1.11.1/assets.zip" -o android_engines.zip
+          unzip -q android_engines.zip -d engines_temp
           
+          # Move shared libraries
+          find engines_temp -name "libomp.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \; || true
+          find engines_temp -name "libc++_shared.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \; || true
+          
+          # Disguise the engines as .so libraries
+          find engines_temp -name "realsr-ncnn" -exec cp {} app/src/main/jniLibs/arm64-v8a/lib_realesrgan.so \;
+          find engines_temp -name "waifu2x-ncnn" -exec cp {} app/src/main/jniLibs/arm64-v8a/lib_waifu2x.so \;
+          
+          # 2. Fetch Real-ESRGAN Models
+          echo "Fetching ESRGAN Models..."
           curl -L "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-ubuntu.zip" -o esrgan_models.zip
           unzip -q esrgan_models.zip -d esrgan_models_temp
           find esrgan_models_temp -name "realesr-animevideov3-x2.bin" -exec cp {} app/src/main/assets/ai_engine/models/ \;
           find esrgan_models_temp -name "realesr-animevideov3-x2.param" -exec cp {} app/src/main/assets/ai_engine/models/ \;
           
-          # 2. Waifu2x Engine & Models
-          echo "Fetching Waifu2x..."
-          curl -L "https://github.com/nihui/waifu2x-ncnn-vulkan/releases/download/20220728/waifu2x-ncnn-vulkan-20220728-ubuntu.zip" -o waifu2x_ubuntu.zip
-          unzip -q waifu2x_ubuntu.zip -d waifu2x_temp
-          
-          # Android version of Waifu2x CLI from tumuyan
-          curl -L "https://github.com/tumuyan/waifu2x-ncnn-vulkan-android/releases/download/1.2.0/assets.zip" -o waifu_android.zip
-          unzip -q waifu_android.zip -d waifu_android_temp
-          find waifu_android_temp -name "waifu2x-ncnn" -exec cp {} app/src/main/jniLibs/arm64-v8a/lib_waifu2x.so \;
-          
-          # Copy Waifu2x models (CUnet and Anime Style Art)
-          cp -r waifu2x_temp/*/models-cunet app/src/main/assets/ai_engine/models/
-          cp -r waifu2x_temp/*/models-upconv_7_anime_style_art_rgb app/src/main/assets/ai_engine/models/
+          # 3. Fetch Waifu2x Models
+          echo "Fetching Waifu2x Models..."
+          curl -L "https://github.com/nihui/waifu2x-ncnn-vulkan/releases/download/20220728/waifu2x-ncnn-vulkan-20220728-ubuntu.zip" -o waifu_models.zip
+          unzip -q waifu_models.zip -d waifu_models_temp
+          find waifu_models_temp -type d -name "models-cunet" -exec cp -r {} app/src/main/assets/ai_engine/models/ \;
+          find waifu_models_temp -type d -name "models-upconv_7_anime_style_art_rgb" -exec cp -r {} app/src/main/assets/ai_engine/models/ \;
           
           # Clean up
           rm -rf *temp *.zip
