@@ -234,15 +234,63 @@ class DownloadWorker @AssistedInject constructor(
 								semaphore.withPermit {
 									runFailsafe {
 										val url = repo.getPageUrl(page)
-										val file = cache[url]
+										var file = cache[url]
 											?: downloadFile(url, destination, repo.source)
+										
+										// === KOTATSU AI ENGINE HOOK ===
+										var upscaledFile: File? = null
+										try {
+											val nativeDir = applicationContext.applicationInfo.nativeLibraryDir
+											val engineBinary = File(nativeDir, "lib_ai_engine.so")
+											
+											val modelsDir = File(applicationContext.filesDir, "ai_models")
+											if (!modelsDir.exists()) {
+												modelsDir.mkdirs()
+												applicationContext.assets.list("ai_engine")?.forEach { assetName ->
+													val assetFile = File(modelsDir, assetName)
+													applicationContext.assets.open("ai_engine/$assetName").use { input ->
+														assetFile.outputStream().use { streamOut ->
+															input.copyTo(streamOut)
+														}
+													}
+												}
+											}
+
+											if (engineBinary.exists() && file.exists()) {
+												upscaledFile = File(file.parentFile, "upscaled_" + file.name + ".png")
+												
+												val pb = ProcessBuilder(
+													engineBinary.absolutePath,
+													"-i", file.absolutePath,
+													"-o", upscaledFile.absolutePath,
+													"-m", modelsDir.absolutePath,
+													"-n", "realesr-animevideov3-x2",
+													"-s", "2"
+												)
+												
+												val env = pb.environment()
+												env["LD_LIBRARY_PATH"] = nativeDir
+												
+												val process = pb.start()
+												process.waitFor()
+
+												if (upscaledFile.exists() && upscaledFile.length() > 0) {
+													if (file.extension == "tmp") file.deleteAwait()
+													file = upscaledFile
+												}
+											}
+										} catch (e: Exception) {
+											e.printStackTraceDebug()
+										}
+										// === END AI ENGINE HOOK ===
+
 										output.addPage(
 											chapter = chapter,
 											file = file,
 											pageNumber = pageIndex,
 											type = getMediaType(url, file),
 										)
-										if (file.extension == "tmp") {
+										if (file.extension == "tmp" || file.name.startsWith("upscaled_")) {
 											file.deleteAwait()
 										}
 									}
