@@ -18,25 +18,24 @@ jobs:
           mkdir -p app/src/main/assets/ai_engine
           mkdir -p app/src/main/jniLibs/arm64-v8a
           
-          # 1. Download Android ARM64 Engine from Tumuyan (BigImage creator)
+          # 1. Download Android ARM64 Engine from Tumuyan
           echo "Downloading Android AI Engine..."
           curl -L "https://github.com/tumuyan/RealSR-NCNN-Android/releases/download/1.11.1/assets.zip" -o android_assets.zip
           unzip -q android_assets.zip -d android_temp
           
-          # Move the engine executable and its required libraries
-          cp android_temp/realsr/realsr-ncnn app/src/main/assets/ai_engine/
-          cp android_temp/realsr/libomp.so app/src/main/jniLibs/arm64-v8a/ 2>/dev/null || true
-          cp android_temp/realsr/libc++_shared.so app/src/main/jniLibs/arm64-v8a/ 2>/dev/null || true
+          # Use 'find' to locate the files, no matter what folder they extracted into
+          find android_temp -name "realsr-ncnn" -exec cp {} app/src/main/assets/ai_engine/ \;
+          find android_temp -name "libomp.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \;
+          find android_temp -name "libc++_shared.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \;
           
-          # 2. Download the AnimeVideoV3 (esrganv3x2) models
-          # We pull this from the Ubuntu release because the models themselves are universal
+          # 2. Download the AnimeVideoV3 models
           echo "Downloading esrganv3x2 models..."
-          curl -L "https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan/releases/download/v0.2.0/realesrgan-ncnn-vulkan-20220424-ubuntu.zip" -o ubuntu_release.zip
+          curl -L "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesrgan-ncnn-vulkan-20220424-ubuntu.zip" -o ubuntu_release.zip
           unzip -q ubuntu_release.zip -d ubuntu_temp
           
-          # Move the exact models you wanted into the app
-          cp ubuntu_temp/models/realesr-animevideov3-x2.bin app/src/main/assets/ai_engine/
-          cp ubuntu_temp/models/realesr-animevideov3-x2.param app/src/main/assets/ai_engine/
+          # Find and move the specific models we need
+          find ubuntu_temp -name "realesr-animevideov3-x2.bin" -exec cp {} app/src/main/assets/ai_engine/ \;
+          find ubuntu_temp -name "realesr-animevideov3-x2.param" -exec cp {} app/src/main/assets/ai_engine/ \;
           
           # Clean up
           rm -rf android_assets.zip android_temp ubuntu_release.zip ubuntu_temp
