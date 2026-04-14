@@ -2,8 +2,7 @@ name: Build Kotatsu AI
 on:
   workflow_dispatch:
   push:
-    branches:
-      - '*'
+    branches: [ devel ]
 
 jobs:
   build:
@@ -14,6 +13,19 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Inject AI Engine & Models
+        run: |
+          # 1. Download the Real-ESRGAN Android binaries & JNI
+          curl -L https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan/releases/download/v0.2.0/realesrgan-ncnn-vulkan-20220424-android.zip -o esrgan.zip
+          unzip esrgan.zip -d esrgan_temp
+          
+          # 2. Move Models to Assets
+          mkdir -p app/src/main/assets/models
+          cp -r esrgan_temp/models/* app/src/main/assets/models/
+          
+          # 3. Clean up
+          rm -rf esrgan_temp esrgan.zip
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -23,19 +35,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-
       - name: Build with Gradle
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Kotatsu-AI-Debug
+          name: Kotatsu-AI-Ultimate
           path: app/build/outputs/apk/debug/*.apk
