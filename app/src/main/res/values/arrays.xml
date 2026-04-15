@@ -144,4 +144,25 @@
 		<item>@string/ask_every_time</item>
 		<item>@string/disable</item>
 	</string-array>
+        <string-array name="ai_engine_entries">
+        <item>Real-ESRGAN (Fast/Anime Optimized)</item>
+        <item>Waifu2x (Classic/High Quality)</item>
+    </string-array>
+    
+    <string-array name="ai_engine_values">
+        <item>realesrgan</item>
+        <item>waifu2x</item>
+    </string-array>
+
+    <string-array name="ai_model_entries">
+        <item>ESRGAN: AnimeVideoV3 (x2)</item>
+        <item>Waifu2x: CUnet (Heavy Noise Reduction)</item>
+        <item>Waifu2x: Anime Style Art (Light)</item>
+    </string-array>
+    
+    <string-array name="ai_model_values">
+        <item>realesr-animevideov3-x2</item>
+        <item>models-cunet</item>
+        <item>models-upconv_7_anime_style_art_rgb</item>
+    </string-array>
 </resources>
