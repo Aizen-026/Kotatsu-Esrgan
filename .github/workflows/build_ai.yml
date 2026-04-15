@@ -1,4 +1,4 @@
-name: Build Kotatsu AI Ultimate
+name: Padoru
 on:
   workflow_dispatch:
   push:
@@ -18,16 +18,15 @@ jobs:
           mkdir -p app/src/main/assets/ai_engine/models
           mkdir -p app/src/main/jniLibs/arm64-v8a
           
-          # 1. Fetch Master Android Assets (Contains BOTH ESRGAN and Waifu2x)
+          # 1. Fetch Master Android Assets
           echo "Fetching Android Engines..."
           curl -L "https://github.com/tumuyan/RealSR-NCNN-Android/releases/download/1.11.1/assets.zip" -o android_engines.zip
           unzip -q android_engines.zip -d engines_temp
           
-          # Move shared libraries
-          find engines_temp -name "libomp.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \; || true
-          find engines_temp -name "libc++_shared.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \; || true
+          # Move ALL shared libraries (This grabs libncnn.so, libomp.so, and anything else it needs!)
+          find engines_temp -name "*.so" -exec cp {} app/src/main/jniLibs/arm64-v8a/ \; || true
           
-          # Disguise the engines as .so libraries
+          # Disguise the actual executables as .so libraries
           find engines_temp -name "realsr-ncnn" -exec cp {} app/src/main/jniLibs/arm64-v8a/lib_realesrgan.so \;
           find engines_temp -name "waifu2x-ncnn" -exec cp {} app/src/main/jniLibs/arm64-v8a/lib_waifu2x.so \;
           
