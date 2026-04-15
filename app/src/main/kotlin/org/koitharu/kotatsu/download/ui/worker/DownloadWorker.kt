@@ -216,6 +216,37 @@ class DownloadWorker @AssistedInject constructor(
 					}
 				}
 				val chapters = getChapters(mangaDetails, task)
+
+				// === KOTATSU AI INITIALIZATION ===
+				val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(applicationContext)
+				val isAiEnabled = prefs.getBoolean("ai_upscale_enabled", false)
+				val aiEngine = prefs.getString("ai_upscale_engine", "realesrgan") ?: "realesrgan"
+				val aiModel = prefs.getString("ai_upscale_model", "realesr-animevideov3-x2") ?: "realesr-animevideov3-x2"
+				val modelsDir = File(applicationContext.filesDir, "ai_models")
+
+				if (isAiEnabled && (!modelsDir.exists() || modelsDir.listFiles()?.isEmpty() == true)) {
+					modelsDir.mkdirs()
+					try {
+						fun copyAssetFolder(assetManager: android.content.res.AssetManager, fromAssetPath: String, toFile: File) {
+							val files = assetManager.list(fromAssetPath) ?: return
+							if (files.isEmpty()) {
+								assetManager.open(fromAssetPath).use { inStream ->
+									toFile.outputStream().use { outStream -> inStream.copyTo(outStream) }
+								}
+							} else {
+								toFile.mkdirs()
+								for (file in files) {
+									copyAssetFolder(assetManager, "$fromAssetPath/$file", File(toFile, file))
+								}
+							}
+						}
+						copyAssetFolder(applicationContext.assets, "ai_engine/models", modelsDir)
+					} catch (e: Exception) {
+						e.printStackTraceDebug()
+					}
+				}
+				// =================================
+
 				for ((chapterIndex, chapter) in chapters.withIndex()) {
 					checkIsPaused()
 					if (chaptersToSkip.remove(chapter.value.id)) {
@@ -236,51 +267,52 @@ class DownloadWorker @AssistedInject constructor(
 										val url = repo.getPageUrl(page)
 										var file = cache[url]
 											?: downloadFile(url, destination, repo.source)
-										
-										// === KOTATSU AI ENGINE HOOK ===
-										var upscaledFile: File? = null
-										try {
-											val nativeDir = applicationContext.applicationInfo.nativeLibraryDir
-											val engineBinary = File(nativeDir, "lib_ai_engine.so")
 											
-											val modelsDir = File(applicationContext.filesDir, "ai_models")
-											if (!modelsDir.exists()) {
-												modelsDir.mkdirs()
-												applicationContext.assets.list("ai_engine")?.forEach { assetName ->
-													val assetFile = File(modelsDir, assetName)
-													applicationContext.assets.open("ai_engine/$assetName").use { input ->
-														assetFile.outputStream().use { streamOut ->
-															input.copyTo(streamOut)
-														}
+										// === KOTATSU AI ENGINE HOOK ===
+										if (isAiEnabled) {
+											try {
+												val nativeDir = applicationContext.applicationInfo.nativeLibraryDir
+												val engineBinaryName = if (aiEngine == "waifu2x") "lib_waifu2x.so" else "lib_realesrgan.so"
+												val engineBinary = File(nativeDir, engineBinaryName)
+												
+												if (engineBinary.exists() && file.exists()) {
+													val upscaledFile = File(file.parentFile, "upscaled_" + file.nameWithoutExtension + ".png")
+													
+													val pb = ProcessBuilder()
+													val env = pb.environment()
+													env["LD_LIBRARY_PATH"] = nativeDir
+													
+													if (aiEngine == "waifu2x") {
+														pb.command(
+															engineBinary.absolutePath,
+															"-i", file.absolutePath,
+															"-o", upscaledFile.absolutePath,
+															"-m", File(modelsDir, aiModel).absolutePath,
+															"-s", "2",
+															"-n", "2"
+														)
+													} else {
+														pb.command(
+															engineBinary.absolutePath,
+															"-i", file.absolutePath,
+															"-o", upscaledFile.absolutePath,
+															"-m", modelsDir.absolutePath,
+															"-n", aiModel,
+															"-s", "2"
+														)
+													}
+													
+													val process = pb.start()
+													process.waitFor()
+
+													if (upscaledFile.exists() && upscaledFile.length() > 0) {
+														if (file.extension == "tmp") file.deleteAwait()
+														file = upscaledFile
 													}
 												}
+											} catch (e: Exception) {
+												e.printStackTraceDebug()
 											}
-
-											if (engineBinary.exists() && file.exists()) {
-												upscaledFile = File(file.parentFile, "upscaled_" + file.name + ".png")
-												
-												val pb = ProcessBuilder(
-													engineBinary.absolutePath,
-													"-i", file.absolutePath,
-													"-o", upscaledFile.absolutePath,
-													"-m", modelsDir.absolutePath,
-													"-n", "realesr-animevideov3-x2",
-													"-s", "2"
-												)
-												
-												val env = pb.environment()
-												env["LD_LIBRARY_PATH"] = nativeDir
-												
-												val process = pb.start()
-												process.waitFor()
-
-												if (upscaledFile.exists() && upscaledFile.length() > 0) {
-													if (file.extension == "tmp") file.deleteAwait()
-													file = upscaledFile
-												}
-											}
-										} catch (e: Exception) {
-											e.printStackTraceDebug()
 										}
 										// === END AI ENGINE HOOK ===
 
