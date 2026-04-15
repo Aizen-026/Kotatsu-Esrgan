@@ -265,10 +265,9 @@ class DownloadWorker @AssistedInject constructor(
 								semaphore.withPermit {
 									runFailsafe {
 										val url = repo.getPageUrl(page)
-										var file = cache[url]
-											?: downloadFile(url, destination, repo.source)
+										var file = cache[url] ?: downloadFile(url, destination, repo.source)
 											
-										// === KOTATSU AI ENGINE HOOK ===
+										// === KOTATSU AI ENGINE HOOK WITH TRANSLATOR ===
 										if (isAiEnabled) {
 											try {
 												val nativeDir = applicationContext.applicationInfo.nativeLibraryDir
@@ -276,38 +275,62 @@ class DownloadWorker @AssistedInject constructor(
 												val engineBinary = File(nativeDir, engineBinaryName)
 												
 												if (engineBinary.exists() && file.exists()) {
-													val upscaledFile = File(file.parentFile, "upscaled_" + file.nameWithoutExtension + ".png")
 													
-													val pb = ProcessBuilder()
-													val env = pb.environment()
-													env["LD_LIBRARY_PATH"] = nativeDir
+													// 1. Convert WebP/AVIF to pure PNG so the AI can read it
+													val inputPng = File(file.parentFile, "ai_input_" + file.nameWithoutExtension + ".png")
+													val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
 													
-													if (aiEngine == "waifu2x") {
-														pb.command(
-															engineBinary.absolutePath,
-															"-i", file.absolutePath,
-															"-o", upscaledFile.absolutePath,
-															"-m", File(modelsDir, aiModel).absolutePath,
-															"-s", "2",
-															"-n", "2"
-														)
-													} else {
-														pb.command(
-															engineBinary.absolutePath,
-															"-i", file.absolutePath,
-															"-o", upscaledFile.absolutePath,
-															"-m", modelsDir.absolutePath,
-															"-n", aiModel,
-															"-s", "2"
-														)
-													}
-													
-													val process = pb.start()
-													process.waitFor()
+													if (bitmap != null) {
+														java.io.FileOutputStream(inputPng).use { out ->
+															bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+														}
+														bitmap.recycle()
 
-													if (upscaledFile.exists() && upscaledFile.length() > 0) {
-														if (file.extension == "tmp") file.deleteAwait()
-														file = upscaledFile
+														val upscaledFile = File(file.parentFile, "upscaled_" + file.nameWithoutExtension + ".png")
+														
+														// 2. Setup the AI Process
+														val pb = ProcessBuilder()
+														pb.redirectErrorStream(true) // Catch all errors
+														val env = pb.environment()
+														env["LD_LIBRARY_PATH"] = nativeDir
+														
+														if (aiEngine == "waifu2x") {
+															pb.command(
+																engineBinary.absolutePath,
+																"-i", inputPng.absolutePath,
+																"-o", upscaledFile.absolutePath,
+																"-m", File(modelsDir, aiModel).absolutePath,
+																"-s", "2",
+																"-n", "2"
+															)
+														} else {
+															pb.command(
+																engineBinary.absolutePath,
+																"-i", inputPng.absolutePath,
+																"-o", upscaledFile.absolutePath,
+																"-m", modelsDir.absolutePath,
+																"-n", aiModel,
+																"-s", "2"
+															)
+														}
+														
+														// 3. Execute and drain the output buffer
+														val process = pb.start()
+														val outputLog = process.inputStream.bufferedReader().use { it.readText() }
+														process.waitFor()
+
+														// 4. Clean up the temporary PNG
+														inputPng.deleteAwait() 
+
+														// 5. Verify the upscaling worked
+														if (upscaledFile.exists() && upscaledFile.length() > 0) {
+															if (file.extension == "tmp") file.deleteAwait()
+															file = upscaledFile
+														} else {
+															// The Black Box Recorder: If it fails, leave a log file for us!
+															val errorLog = File(file.parentFile, "AI_ERROR_LOG.txt")
+															errorLog.appendText("Failed to upscale ${file.name}\nEngine: $aiEngine\nLog:\n$outputLog\n\n")
+														}
 													}
 												}
 											} catch (e: Exception) {
