@@ -14,17 +14,22 @@
 		android:persistent="false"
 		android:title="@string/manga_save_location" />
 
-	<ListPreference
-		android:entries="@array/download_formats"
-		android:key="downloads_format"
-		android:title="@string/preferred_download_format"
-		app:useSimpleSummaryProvider="true" />
+	<        <ListPreference
+            android:key="ai_upscale_engine"
+            android:title="AI Engine"
+            app:useSimpleSummaryProvider="true"
+            android:entries="@array/ai_engine_entries"
+            android:entryValues="@array/ai_engine_values"
+            android:defaultValue="realesrgan" />
 
-	<ListPreference
-		android:entries="@array/metered_network_options"
-		android:key="downloads_metered_network"
-		android:title="@string/download_over_cellular"
-		app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:key="ai_upscale_model"
+            android:title="AI Model"
+            app:useSimpleSummaryProvider="true"
+            android:entries="@array/ai_model_entries"
+            android:entryValues="@array/ai_model_values"
+            android:defaultValue="realesr-animevideov3-x2" />
+
 
 	<Preference
 		android:icon="@drawable/ic_info_outline"
